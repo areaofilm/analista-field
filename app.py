@@ -230,7 +230,7 @@ def _format_filter_summary(filters: dict[str, list[str]], date_range: tuple[pd.T
             parts.append(f"{key}: {', '.join(values[:6])}{'...' if len(values) > 6 else ''}")
     if date_range:
         start, end = date_range
-        parts.append(f"periodo: {start.date()} a {end.date()}")
+        parts.append(f"período: {start.strftime('%d/%m/%Y')} a {end.strftime('%d/%m/%Y')}")
     return "; ".join(parts) if parts else "Sem filtros adicionais."
 
 
@@ -330,17 +330,39 @@ def _date_range_control(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Time
         return None
     start_default = valid_dates.min().date()
     end_default = valid_dates.max().date()
-    selected = st.date_input(
-        "Periodo",
-        value=(start_default, end_default),
-        min_value=start_default,
-        max_value=end_default,
-        key="event_date_range",
-    )
+
+    bounds_key = (date_col, start_default.isoformat(), end_default.isoformat())
+    if st.session_state.get("event_date_bounds") != bounds_key:
+        st.session_state["event_date_bounds"] = bounds_key
+        st.session_state["event_applied_date_range"] = (pd.Timestamp(start_default), pd.Timestamp(end_default))
+        st.session_state["event_date_range_picker"] = (start_default, end_default)
+
+    picker_col, button_col = st.columns([3, 1])
+    with picker_col:
+        selected = st.date_input(
+            "Período",
+            value=st.session_state.get("event_date_range_picker", (start_default, end_default)),
+            min_value=start_default,
+            max_value=end_default,
+            format="DD/MM/YYYY",
+            key="event_date_range_picker",
+        )
+    with button_col:
+        st.write("")
+        apply_clicked = st.button("Aplicar período", key="event_apply_period", use_container_width=True)
+
     if not isinstance(selected, tuple) or len(selected) != 2:
+        return st.session_state.get("event_applied_date_range")
+    if apply_clicked:
+        start, end = selected
+        st.session_state["event_applied_date_range"] = (pd.Timestamp(start), pd.Timestamp(end))
+
+    applied = st.session_state.get("event_applied_date_range")
+    if not applied:
         return None
-    start, end = selected
-    return pd.Timestamp(start), pd.Timestamp(end) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+    start, end = applied
+    st.caption(f"Período aplicado: {start.strftime('%d/%m/%Y')} a {end.strftime('%d/%m/%Y')}")
+    return start, end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
 
 
 def _mapping_controls(df: pd.DataFrame, detected: dict[str, str | None]) -> dict[str, str | None]:

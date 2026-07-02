@@ -13,10 +13,26 @@ REQUESTED_RANKINGS: tuple[tuple[str, str], ...] = (
     ("cidade", "Cidade"),
     ("bairro", "Bairro"),
     ("dia", "Por dia"),
-    ("mes", "Mes"),
+    ("mes", "Mês"),
     ("evento", "Tipo de evento"),
     ("regional", "Regional"),
 )
+
+
+MONTH_NAMES_PT_BR = {
+    1: "janeiro",
+    2: "fevereiro",
+    3: "março",
+    4: "abril",
+    5: "maio",
+    6: "junho",
+    7: "julho",
+    8: "agosto",
+    9: "setembro",
+    10: "outubro",
+    11: "novembro",
+    12: "dezembro",
+}
 
 
 @dataclass(frozen=True)
@@ -238,8 +254,10 @@ def apply_event_date_columns(df: pd.DataFrame, date_col: str | None) -> pd.DataF
     dates = pd.to_datetime(prepared[date_col], errors="coerce", dayfirst=True)
     if dates.notna().sum() == 0:
         return prepared
-    prepared["__evento_data"] = dates.dt.date.astype("string")
-    prepared["__evento_mes"] = dates.dt.to_period("M").astype("string")
+    prepared["__evento_data"] = dates.dt.strftime("%d/%m/%Y")
+    prepared["__evento_mes"] = dates.apply(
+        lambda value: f"{MONTH_NAMES_PT_BR[int(value.month)]}/{int(value.year)}" if pd.notna(value) else pd.NA
+    )
     return prepared
 
 
