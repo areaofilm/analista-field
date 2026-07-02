@@ -280,6 +280,27 @@ def _bar_colors(size: int) -> list[str]:
     return px.colors.sample_colorscale("Blues", [index / (size - 1) for index in range(size)])
 
 
+def _wrap_axis_label(value: object, width: int = 22, max_lines: int = 3) -> str:
+    words = str(value).split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= width:
+            current = candidate
+            continue
+        if current:
+            lines.append(current)
+        current = word[:width]
+        if len(lines) >= max_lines:
+            break
+    if current and len(lines) < max_lines:
+        lines.append(current)
+    if len(lines) == max_lines and len(" ".join(words)) > len(" ".join(lines)):
+        lines[-1] = f"{lines[-1][: max(0, width - 3)]}..."
+    return "<br>".join(lines) if lines else str(value)
+
+
 def _event_donut_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.Figure:
     plot_df = ranking.head(top_n).copy()
     fig = px.pie(
@@ -301,6 +322,55 @@ def _event_donut_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.
 
 def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.Figure:
     plot_df = ranking.head(top_n).copy()
+    label_lengths = plot_df[label_col].astype(str).str.len()
+    if not label_lengths.empty and label_lengths.max() > 18:
+        full_labels = plot_df[label_col].astype(str).tolist()
+        display_labels = [f"{index + 1}. {_wrap_axis_label(label)}" for index, label in enumerate(full_labels)]
+        fig = go.Figure()
+        fig.add_trace(
+            go.Bar(
+                x=plot_df["Quantidade"],
+                y=display_labels,
+                orientation="h",
+                text=plot_df["Quantidade"],
+                textposition="outside",
+                marker_color=_bar_colors(len(plot_df)),
+                name="Quantidade",
+                customdata=full_labels,
+                hovertemplate="%{customdata}<br>%{x} registros<extra></extra>",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=plot_df["% acumulado"],
+                y=display_labels,
+                mode="lines+markers",
+                line={"color": "#f97316", "width": 3},
+                marker={"size": 7},
+                name="% acumulado",
+                customdata=full_labels,
+                xaxis="x2",
+                hovertemplate="%{customdata}<br>%{x:.1f}% acumulado<extra></extra>",
+            )
+        )
+        fig.update_layout(**_chart_layout())
+        fig.update_layout(
+            title=f"Top {len(plot_df)} categorias - {label_col}",
+            title_x=0.02,
+            height=max(460, 54 * len(plot_df) + 150),
+            margin={"l": 210, "r": 45, "t": 85, "b": 55},
+            xaxis={"title": "Quantidade", "gridcolor": _theme()["grid"]},
+            xaxis2={
+                "title": "% acumulado",
+                "overlaying": "x",
+                "side": "top",
+                "range": [0, 105],
+                "showgrid": False,
+            },
+            yaxis={"title": label_col, "autorange": "reversed", "tickfont": {"size": 10}},
+        )
+        return fig
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         go.Bar(
