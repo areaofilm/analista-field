@@ -68,6 +68,14 @@ st.markdown(
         border: 1px solid #1f2937;
         border-radius: 8px;
     }
+    .signature-footer {
+        margin-top: 2.5rem;
+        padding-top: .8rem;
+        border-top: 1px solid rgba(148, 163, 184, .18);
+        color: #64748b;
+        font-size: .78rem;
+        text-align: center;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -178,6 +186,13 @@ def _render_event_insights(title: str, insights: list[str]) -> None:
           <p>A pizza mostra participacao por quantidade. A barra mostra ranking/Pareto com percentual acumulado.</p>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_footer() -> None:
+    st.markdown(
+        '<div class="signature-footer">© 2026 Walace.gorino. Todos os direitos reservados.</div>',
         unsafe_allow_html=True,
     )
 
@@ -400,6 +415,7 @@ def main() -> None:
     )
     if uploaded_file is None:
         st.info("Envie a planilha para escolher a aba e iniciar a analise.")
+        _render_footer()
         return
 
     raw = uploaded_file.getvalue()
@@ -407,9 +423,11 @@ def main() -> None:
         sheets = _event_sheet_names(raw)
     except Exception as exc:  # noqa: BLE001 - friendly app error.
         st.error(f"Nao foi possivel ler as abas da planilha: {exc}")
+        _render_footer()
         return
     if not sheets:
         st.warning("A planilha nao possui abas legiveis.")
+        _render_footer()
         return
 
     top_cols = st.columns([2, 2, 2])
@@ -420,9 +438,11 @@ def main() -> None:
             df, header_row, raw_rows = _event_sheet_dataframe(raw, selected_sheet)
     except Exception as exc:  # noqa: BLE001 - friendly app error.
         st.error(f"Nao foi possivel ler a aba selecionada: {exc}")
+        _render_footer()
         return
     if df.empty:
         st.warning("A aba selecionada nao possui dados tabulares suficientes.")
+        _render_footer()
         return
 
     detected = _mapping_controls(df, detect_event_columns(df))
@@ -444,6 +464,7 @@ def main() -> None:
     filtered_df, date_range, selected_filters = _filter_controls(df, detected)
     if filtered_df.empty:
         st.warning("Nenhuma linha encontrada com os filtros selecionados.")
+        _render_footer()
         return
 
     rankings = build_event_rankings(filtered_df, detected)
@@ -454,6 +475,7 @@ def main() -> None:
     ]
     if not available_dimensions:
         st.warning("Nao encontrei colunas suficientes para montar os rankings solicitados.")
+        _render_footer()
         return
 
     metric_items = [
@@ -541,6 +563,8 @@ def main() -> None:
 
     with st.expander("Previa da base filtrada"):
         st.dataframe(filtered_df.head(1000), use_container_width=True, hide_index=True)
+
+    _render_footer()
 
 
 if __name__ == "__main__":
