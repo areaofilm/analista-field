@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from plotly.subplots import make_subplots
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -106,6 +107,74 @@ def _select_index(options: list[str], selected: str | None) -> int:
     if selected and selected in options:
         return options.index(selected)
     return 0
+
+
+def _install_calendar_translation() -> None:
+    components.html(
+        """
+        <script>
+        (() => {
+          const monthMap = {
+            January: "janeiro",
+            February: "fevereiro",
+            March: "março",
+            April: "abril",
+            May: "maio",
+            June: "junho",
+            July: "julho",
+            August: "agosto",
+            September: "setembro",
+            October: "outubro",
+            November: "novembro",
+            December: "dezembro"
+          };
+          const pattern = new RegExp("\\\\b(" + Object.keys(monthMap).join("|") + ")\\\\b", "g");
+          const translateValue = (value) => value.replace(pattern, (match) => monthMap[match] || match);
+          const translateTextNode = (node) => {
+            const translated = translateValue(node.nodeValue || "");
+            if (translated !== node.nodeValue) node.nodeValue = translated;
+          };
+          const translateElement = (element) => {
+            if (!element || element.nodeType !== 1) return;
+            ["aria-label", "title"].forEach((attribute) => {
+              const current = element.getAttribute(attribute);
+              if (current) element.setAttribute(attribute, translateValue(current));
+            });
+          };
+          const parentDoc = window.parent.document;
+          const parentNodeFilter = window.parent.NodeFilter;
+          const translateTree = (root) => {
+            if (!root) return;
+            if (root.nodeType === 3) {
+              translateTextNode(root);
+              return;
+            }
+            translateElement(root);
+            const walker = parentDoc.createTreeWalker(root, parentNodeFilter.SHOW_TEXT | parentNodeFilter.SHOW_ELEMENT);
+            let node = walker.nextNode();
+            while (node) {
+              if (node.nodeType === 3) translateTextNode(node);
+              if (node.nodeType === 1) translateElement(node);
+              node = walker.nextNode();
+            }
+          };
+          const target = parentDoc.body;
+          translateTree(target);
+          if (!window.parent.__analistaFieldCalendarPtBr) {
+            window.parent.__analistaFieldCalendarPtBr = true;
+            new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                if (mutation.type === "characterData") translateTextNode(mutation.target);
+                mutation.addedNodes.forEach((node) => translateTree(node));
+              });
+            }).observe(target, { childList: true, subtree: true, characterData: true });
+          }
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def _event_filter_options(df: pd.DataFrame, column: str | None, limit: int = 250) -> list[str]:
@@ -337,6 +406,7 @@ def _date_range_control(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Time
         st.session_state["event_applied_date_range"] = (pd.Timestamp(start_default), pd.Timestamp(end_default))
         st.session_state["event_date_range_picker"] = (start_default, end_default)
 
+    _install_calendar_translation()
     picker_col, button_col = st.columns([3, 1])
     with picker_col:
         selected = st.date_input(
