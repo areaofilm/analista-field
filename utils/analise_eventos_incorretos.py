@@ -315,6 +315,8 @@ def filter_event_dataframe(
 
 def format_ranking_table(df: pd.DataFrame) -> pd.DataFrame:
     formatted = df.copy()
+    if "Quantidade" in formatted.columns:
+        formatted["Quantidade"] = formatted["Quantidade"].map(lambda value: f"{int(value):,}".replace(",", "."))
     for column in ("% participacao", "% acumulado"):
         if column in formatted.columns:
             formatted[column] = formatted[column].map(lambda value: f"{value:.1f}%")
@@ -338,12 +340,14 @@ def event_insights(ranking: pd.DataFrame, label: str, top_n: int) -> list[str]:
         return [f"Nao ha dados suficientes para analisar {label.lower()}."]
     top = ranking.iloc[0]
     top_label = str(top[label])
+    top_count = int(top["Quantidade"])
     top_pct = float(top["% participacao"])
     visible = ranking.head(top_n)
     accumulated = float(visible["% participacao"].sum())
     concentration = "concentrada" if top_pct >= 35 else "pulverizada"
+    count_text = f"{top_count:,}".replace(",", ".")
     return [
-        f"{top_label} lidera {label.lower()} com {top_pct:.1f}% dos registros.",
+        f"{top_label} lidera {label.lower()} com {count_text} eventos ({top_pct:.1f}% dos registros filtrados).",
         f"As {len(visible)} primeiras categorias concentram aproximadamente {accumulated:.1f}% do volume exibido.",
         f"A distribuicao esta {concentration}; avalie o primeiro grupo e tambem a cauda do ranking.",
     ]

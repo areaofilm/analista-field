@@ -274,10 +274,46 @@ def _event_filter_options(df: pd.DataFrame, column: str | None, limit: int = 250
     return [str(value) for value in values.value_counts().head(limit).index.tolist()]
 
 
+def _event_type_focus_control(df: pd.DataFrame, detected: dict[str, str | None]) -> tuple[pd.DataFrame, list[str]]:
+    event_col = detected.get("evento")
+    if not event_col or event_col not in df.columns:
+        return df, []
+    options = _event_filter_options(df, event_col, limit=500)
+    if not options:
+        return df, []
+
+    selected = st.multiselect(
+        "Tipo de evento analisado",
+        options,
+        default=[],
+        key="event_focus_type",
+        help="Use este filtro para mudar rapidamente quais tipos de evento entram nos graficos, rankings e downloads.",
+    )
+    if not selected:
+        st.caption("Eventos considerados: todos os tipos disponiveis nos filtros acima.")
+        return df, []
+
+    comparable = df[event_col].astype("string").str.strip()
+    focused = df[comparable.isin(selected)].copy()
+    st.caption(f"Eventos considerados: {', '.join(selected[:4])}{'...' if len(selected) > 4 else ''}.")
+    return focused, selected
+
+
 def _bar_colors(size: int) -> list[str]:
     if size <= 1:
         return ["#3b82f6"]
     return px.colors.sample_colorscale("Blues", [index / (size - 1) for index in range(size)])
+
+
+def _format_count(value: object) -> str:
+    try:
+        return f"{int(value):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_count_label(value: object) -> str:
+    return f"{_format_count(value)} eventos"
 
 
 def _wrap_axis_label(value: object, width: int = 22, max_lines: int = 3) -> str:
@@ -322,6 +358,7 @@ def _event_donut_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.
 
 def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.Figure:
     plot_df = ranking.head(top_n).copy()
+    plot_df["Quantidade texto"] = plot_df["Quantidade"].map(_format_count_label)
     label_lengths = plot_df[label_col].astype(str).str.len()
     if not label_lengths.empty and label_lengths.max() > 18:
         full_labels = plot_df[label_col].astype(str).tolist()
@@ -332,12 +369,12 @@ def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go
                 x=plot_df["Quantidade"],
                 y=display_labels,
                 orientation="h",
-                text=plot_df["Quantidade"],
+                text=plot_df["Quantidade texto"],
                 textposition="outside",
                 marker_color=_bar_colors(len(plot_df)),
-                name="Quantidade",
+                name="Eventos",
                 customdata=full_labels,
-                hovertemplate="%{customdata}<br>%{x} registros<extra></extra>",
+                hovertemplate="%{customdata}<br>%{text}<extra></extra>",
             )
         )
         fig.add_trace(
@@ -359,7 +396,7 @@ def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go
             title_x=0.02,
             height=max(460, 54 * len(plot_df) + 150),
             margin={"l": 210, "r": 45, "t": 85, "b": 55},
-            xaxis={"title": "Quantidade", "gridcolor": _theme()["grid"]},
+            xaxis={"title": "Quantidade de eventos", "gridcolor": _theme()["grid"]},
             xaxis2={
                 "title": "% acumulado",
                 "overlaying": "x",
@@ -376,11 +413,11 @@ def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go
         go.Bar(
             x=plot_df[label_col],
             y=plot_df["Quantidade"],
-            text=plot_df["Quantidade"],
+            text=plot_df["Quantidade texto"],
             textposition="outside",
             marker_color=_bar_colors(len(plot_df)),
-            name="Quantidade",
-            hovertemplate="%{x}<br>%{y} registros<extra></extra>",
+            name="Eventos",
+            hovertemplate="%{x}<br>%{text}<extra></extra>",
         ),
         secondary_y=False,
     )
@@ -398,7 +435,7 @@ def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go
     )
     fig.update_layout(**_chart_layout())
     fig.update_layout(title=f"Top {len(plot_df)} categorias - {label_col}", title_x=0.02)
-    fig.update_yaxes(title_text="Quantidade", gridcolor=_theme()["grid"], secondary_y=False)
+    fig.update_yaxes(title_text="Quantidade de eventos", gridcolor=_theme()["grid"], secondary_y=False)
     fig.update_yaxes(title_text="% acumulado", range=[0, 105], gridcolor=_theme()["grid"], secondary_y=True)
     fig.update_xaxes(title_text=label_col, tickangle=0)
     return fig
@@ -726,7 +763,20 @@ def main() -> None:
         _render_footer()
         return
 
-    rankings = build_event_rankings(filtered_df, detected)
+    st.subheader("Explorador visual interativo")
+    focus_cols = st.columns([2, 2, 1])
+    with focus_cols[0]:
+        analysis_df, focused_event_types = _event_type_focus_control(filtered_df, detected)
+    if analysis_df.empty:
+        st.warning("Nenhuma linha encontrada para o tipo de evento selecionado.")
+        _render_footer()
+        return
+
+    report_filters = dict(selected_filters)
+    if focused_event_types:
+        report_filters["tipo de evento analisado"] = focused_event_types
+
+    rankings = build_event_rankings(analysis_df, detected)
     available_dimensions = [
         (key, label)
         for key, label in REQUESTED_RANKINGS
@@ -738,16 +788,15 @@ def main() -> None:
         return
 
     metric_items = [
-        ("Registros filtrados", f"{len(filtered_df):,}".replace(",", ".")),
+        ("Registros de eventos", f"{len(analysis_df):,}".replace(",", ".")),
+        ("Tipo de evento", "Todos" if not focused_event_types else f"{len(focused_event_types)} selecionado(s)"),
         ("Dimensoes detectadas", str(len(available_dimensions))),
         ("Regional", detected.get("regional") or "Nao detectada"),
-        ("Problema", detected.get("problema") or "Nao detectado"),
     ]
     metric_cols = st.columns(4)
     for col, (label, value) in zip(metric_cols, metric_items):
         col.metric(label, value)
 
-    st.subheader("Explorador visual interativo")
     control_cols = st.columns([2, 2, 2])
     dimension_label_map = {label: key for key, label in available_dimensions}
     with control_cols[0]:
@@ -792,7 +841,7 @@ def main() -> None:
     with download_cols[0]:
         st.download_button(
             "Baixar Excel da analise",
-            data=build_event_excel_bytes(rankings, filtered_df),
+            data=build_event_excel_bytes(rankings, analysis_df),
             file_name="analise_eventos_incorretos.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
@@ -803,13 +852,13 @@ def main() -> None:
                 selected_sheet=selected_sheet,
                 header_row=header_row,
                 raw_rows=raw_rows,
-                filtered_rows=len(filtered_df),
+                filtered_rows=len(analysis_df),
                 available_dimensions=available_dimensions,
                 selected_dimension_label=selected_dimension_label,
                 selected_ranking=selected_ranking,
                 top_n=top_n,
                 rankings=rankings,
-                filters=selected_filters,
+                filters=report_filters,
                 date_range=date_range,
                 detected=detected,
             ),
@@ -821,7 +870,7 @@ def main() -> None:
         st.caption("A exportacao inclui os rankings solicitados e a base filtrada da aba escolhida.")
 
     with st.expander("Previa da base filtrada"):
-        st.dataframe(filtered_df.head(1000), use_container_width=True, hide_index=True)
+        st.dataframe(analysis_df.head(1000), use_container_width=True, hide_index=True)
 
     _render_footer()
 
