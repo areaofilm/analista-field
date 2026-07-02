@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+*.log
+.env
+.venv/
+venv/
+relatorio_*.pdf
