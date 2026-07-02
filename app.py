@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
 from io import BytesIO
 from pathlib import Path
 
@@ -89,21 +88,6 @@ EVENT_DARK_LAYOUT = {
     "font": {"color": "#f8fafc"},
     "margin": {"l": 45, "r": 45, "t": 70, "b": 45},
     "legend": {"font": {"color": "#f8fafc"}},
-}
-
-MONTH_NAMES_PT_BR = {
-    1: "janeiro",
-    2: "fevereiro",
-    3: "março",
-    4: "abril",
-    5: "maio",
-    6: "junho",
-    7: "julho",
-    8: "agosto",
-    9: "setembro",
-    10: "outubro",
-    11: "novembro",
-    12: "dezembro",
 }
 
 
@@ -337,56 +321,6 @@ def _build_pdf_report(
     return output.getvalue()
 
 
-def _last_day_of_month(year: int, month: int) -> int:
-    return int(pd.Timestamp(year=year, month=month, day=1).days_in_month)
-
-
-def _set_date_selector_defaults(prefix: str, value: date) -> None:
-    st.session_state[f"{prefix}_day"] = value.day
-    st.session_state[f"{prefix}_month"] = value.month
-    st.session_state[f"{prefix}_year"] = value.year
-
-
-def _date_selector(prefix: str, label: str, years: list[int]) -> date:
-    current_year = int(st.session_state.get(f"{prefix}_year", years[0]))
-    if current_year not in years:
-        current_year = years[0]
-        st.session_state[f"{prefix}_year"] = current_year
-    current_month = int(st.session_state.get(f"{prefix}_month", 1))
-    if current_month not in MONTH_NAMES_PT_BR:
-        current_month = 1
-        st.session_state[f"{prefix}_month"] = current_month
-    max_day = _last_day_of_month(current_year, current_month)
-    current_day = min(int(st.session_state.get(f"{prefix}_day", 1)), max_day)
-    st.session_state[f"{prefix}_day"] = current_day
-
-    st.caption(label)
-    day_col, month_col, year_col = st.columns([1, 2, 1])
-    with day_col:
-        day = st.selectbox(
-            "Dia",
-            list(range(1, max_day + 1)),
-            index=current_day - 1,
-            key=f"{prefix}_day",
-        )
-    with month_col:
-        month = st.selectbox(
-            "Mês",
-            list(MONTH_NAMES_PT_BR.keys()),
-            format_func=lambda value: MONTH_NAMES_PT_BR[value],
-            index=current_month - 1,
-            key=f"{prefix}_month",
-        )
-    with year_col:
-        year = st.selectbox(
-            "Ano",
-            years,
-            index=years.index(current_year) if current_year in years else 0,
-            key=f"{prefix}_year",
-        )
-    return date(int(year), int(month), min(int(day), _last_day_of_month(int(year), int(month))))
-
-
 def _date_range_control(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Timestamp, pd.Timestamp] | None:
     if not date_col or date_col not in df.columns:
         return None
@@ -401,30 +335,27 @@ def _date_range_control(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Time
     if st.session_state.get("event_date_bounds") != bounds_key:
         st.session_state["event_date_bounds"] = bounds_key
         st.session_state["event_applied_date_range"] = (pd.Timestamp(start_default), pd.Timestamp(end_default))
-        _set_date_selector_defaults("event_start", start_default)
-        _set_date_selector_defaults("event_end", end_default)
+        st.session_state["event_date_range_picker"] = (start_default, end_default)
 
-    st.caption("Período")
-    years = list(range(start_default.year, end_default.year + 1))
-    picker_col, button_col = st.columns([5, 1])
+    picker_col, button_col = st.columns([3, 1])
     with picker_col:
-        start_col, end_col = st.columns(2)
-        with start_col:
-            selected_start = _date_selector("event_start", "De", years)
-        with end_col:
-            selected_end = _date_selector("event_end", "Até", years)
+        selected = st.date_input(
+            "Período",
+            value=st.session_state.get("event_date_range_picker", (start_default, end_default)),
+            min_value=start_default,
+            max_value=end_default,
+            format="DD/MM/YYYY",
+            key="event_date_range_picker",
+        )
     with button_col:
-        st.write("")
         st.write("")
         apply_clicked = st.button("Aplicar período", key="event_apply_period", use_container_width=True)
 
+    if not isinstance(selected, tuple) or len(selected) != 2:
+        return st.session_state.get("event_applied_date_range")
     if apply_clicked:
-        start = max(pd.Timestamp(selected_start), pd.Timestamp(start_default))
-        end = min(pd.Timestamp(selected_end), pd.Timestamp(end_default))
-        if start > end:
-            st.warning("A data inicial não pode ser maior que a data final.")
-        else:
-            st.session_state["event_applied_date_range"] = (start, end)
+        start, end = selected
+        st.session_state["event_applied_date_range"] = (pd.Timestamp(start), pd.Timestamp(end))
 
     applied = st.session_state.get("event_applied_date_range")
     if not applied:
