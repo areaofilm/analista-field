@@ -83,13 +83,102 @@ st.markdown(
 )
 
 
-EVENT_DARK_LAYOUT = {
-    "paper_bgcolor": "#0b111a",
-    "plot_bgcolor": "#0b111a",
-    "font": {"color": "#f8fafc"},
-    "margin": {"l": 45, "r": 45, "t": 70, "b": 45},
-    "legend": {"font": {"color": "#f8fafc"}},
+THEMES = {
+    "Escuro": {
+        "page": "#071426",
+        "panel": "#0b111a",
+        "border": "#1f2937",
+        "text": "#f8fafc",
+        "muted": "#aab4c3",
+        "footer": "#64748b",
+        "grid": "#273244",
+        "accent": "#6ee7b7",
+    },
+    "Claro": {
+        "page": "#f4f7fb",
+        "panel": "#ffffff",
+        "border": "#d9e2ef",
+        "text": "#0f172a",
+        "muted": "#475569",
+        "footer": "#64748b",
+        "grid": "#d9e2ef",
+        "accent": "#047857",
+    },
 }
+
+
+def _theme() -> dict[str, str]:
+    return THEMES.get(st.session_state.get("app_theme", "Escuro"), THEMES["Escuro"])
+
+
+def _apply_theme(theme_name: str) -> None:
+    st.session_state["app_theme"] = theme_name
+    theme = _theme()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{ background: {theme["page"]}; color: {theme["text"]}; }}
+        .main .block-container {{ padding-top: 1.4rem; max-width: 1480px; }}
+        h1, h2, h3, h4, label, .stMarkdown {{ color: {theme["text"]}; }}
+        div[data-testid="stMetric"] {{
+            background: {theme["panel"]};
+            border: 1px solid {theme["border"]};
+            border-radius: 8px;
+            padding: 14px 16px;
+        }}
+        div[data-testid="stMetric"] label,
+        div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
+            color: {theme["text"]};
+        }}
+        .event-panel {{
+            background: {theme["panel"]};
+            border: 1px solid {theme["border"]};
+            border-radius: 8px;
+            padding: 14px 16px;
+            min-height: 190px;
+        }}
+        .event-panel h4 {{ color: {theme["text"]}; margin: 0 0 8px 0; }}
+        .event-panel li, .event-panel p {{ color: {theme["muted"]}; }}
+        .event-panel strong {{ color: {theme["accent"]}; }}
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="popover"] ul {{
+            background-color: {theme["panel"]};
+            border-color: {theme["border"]};
+            color: {theme["text"]};
+        }}
+        div[data-baseweb="select"] span,
+        div[data-baseweb="input"] input,
+        div[data-baseweb="popover"] li {{
+            color: {theme["text"]};
+        }}
+        div[data-testid="stDataFrame"] {{
+            border: 1px solid {theme["border"]};
+            border-radius: 8px;
+        }}
+        .signature-footer {{
+            margin-top: 2.5rem;
+            padding-top: .8rem;
+            border-top: 1px solid {theme["border"]};
+            color: {theme["footer"]};
+            font-size: .78rem;
+            text-align: center;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _chart_layout() -> dict:
+    theme = _theme()
+    return {
+        "paper_bgcolor": theme["panel"],
+        "plot_bgcolor": theme["panel"],
+        "font": {"color": theme["text"]},
+        "margin": {"l": 45, "r": 45, "t": 70, "b": 45},
+        "legend": {"font": {"color": theme["text"]}},
+    }
 
 
 @st.cache_data(show_spinner=False)
@@ -205,7 +294,7 @@ def _event_donut_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go.
         textposition="inside",
         hovertemplate="%{label}<br>%{value} registros<br>%{percent}<extra></extra>",
     )
-    fig.update_layout(**EVENT_DARK_LAYOUT)
+    fig.update_layout(**_chart_layout())
     fig.update_layout(title=f"Participacao por {label_col}", title_x=0.02)
     return fig
 
@@ -237,10 +326,10 @@ def _event_pareto_chart(ranking: pd.DataFrame, label_col: str, top_n: int) -> go
         ),
         secondary_y=True,
     )
-    fig.update_layout(**EVENT_DARK_LAYOUT)
+    fig.update_layout(**_chart_layout())
     fig.update_layout(title=f"Top {len(plot_df)} categorias - {label_col}", title_x=0.02)
-    fig.update_yaxes(title_text="Quantidade", gridcolor="#273244", secondary_y=False)
-    fig.update_yaxes(title_text="% acumulado", range=[0, 105], gridcolor="#273244", secondary_y=True)
+    fig.update_yaxes(title_text="Quantidade", gridcolor=_theme()["grid"], secondary_y=False)
+    fig.update_yaxes(title_text="% acumulado", range=[0, 105], gridcolor=_theme()["grid"], secondary_y=True)
     fig.update_xaxes(title_text=label_col, tickangle=0)
     return fig
 
@@ -493,12 +582,20 @@ def _filter_controls(
 
 
 def main() -> None:
-    header_cols = st.columns([1, 5])
+    header_cols = st.columns([1, 4, 1])
     with header_cols[0]:
         if LOGO_PATH.exists():
             st.image(str(LOGO_PATH), width=150)
     with header_cols[1]:
         st.title("Analista Field")
+    with header_cols[2]:
+        selected_theme = st.selectbox(
+            "Tema",
+            ["Escuro", "Claro"],
+            index=0 if st.session_state.get("app_theme", "Escuro") == "Escuro" else 1,
+            key="theme_selector",
+        )
+    _apply_theme(selected_theme)
 
     uploaded_file = st.file_uploader(
         "Planilha XLSX",
