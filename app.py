@@ -198,6 +198,47 @@ def _select_index(options: list[str], selected: str | None) -> int:
     return 0
 
 
+def _normalized_column_name(value: str) -> str:
+    return (
+        value.lower()
+        .replace("ã", "a")
+        .replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+        .replace("ç", "c")
+        .strip()
+    )
+
+
+def _exact_column(columns: list[str], wanted: str) -> str | None:
+    wanted_norm = _normalized_column_name(wanted)
+    for column in columns:
+        if _normalized_column_name(column) == wanted_norm:
+            return column
+    return None
+
+
+def _repair_polo_mapping(columns: list[str], detected: dict[str, str | None]) -> None:
+    polo_col = _exact_column(columns, "polo")
+    if not polo_col:
+        return
+
+    detected["polo"] = polo_col
+    current_polo = st.session_state.get("event_map_polo")
+    if not current_polo or current_polo not in columns:
+        st.session_state["event_map_polo"] = polo_col
+
+    if st.session_state.get("event_map_instalador") == polo_col:
+        st.session_state.pop("event_map_instalador", None)
+
+
 def _install_calendar_translation() -> None:
     components.html(
         """
@@ -634,6 +675,7 @@ def _date_range_control(df: pd.DataFrame, date_col: str | None) -> tuple[pd.Time
 
 def _mapping_controls(df: pd.DataFrame, detected: dict[str, str | None]) -> dict[str, str | None]:
     columns = [str(col) for col in df.columns]
+    _repair_polo_mapping(columns, detected)
     options = [""] + columns
     with st.expander("Mapeamento automatico de colunas", expanded=False):
         cols = st.columns(4)
