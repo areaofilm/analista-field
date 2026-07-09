@@ -12,6 +12,7 @@ REQUESTED_RANKINGS: tuple[tuple[str, str], ...] = (
     ("instalador", "Instalador"),
     ("cidade", "Cidade"),
     ("bairro", "Bairro"),
+    ("polo", "Polo"),
     ("dia", "Por dia"),
     ("mes", "Mês"),
     ("evento", "Tipo de evento"),
@@ -108,6 +109,7 @@ HEADER_HINTS = {
     "lancadapor",
     "cidade",
     "bairro",
+    "polo",
     "tipo atibidade os",
     "tipo atividade os",
 }
@@ -194,6 +196,7 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "cidade": ("cidade", "city", "municipio"),
     "bairro": ("bairro", "neighborhood"),
+    "polo": ("polo", "hub"),
     "regional": ("regional", "regiao"),
     "evento": (
         "evento",
@@ -282,6 +285,7 @@ def build_event_rankings(df: pd.DataFrame, detected: dict[str, str | None]) -> d
         "instalador": detected.get("instalador"),
         "cidade": detected.get("cidade"),
         "bairro": detected.get("bairro"),
+        "polo": detected.get("polo"),
         "dia": "__evento_data" if "__evento_data" in prepared.columns else None,
         "mes": "__evento_mes" if "__evento_mes" in prepared.columns else None,
         "evento": detected.get("evento"),

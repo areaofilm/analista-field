@@ -546,6 +546,7 @@ def _build_pdf_report(
         ["Dimensao explorada", selected_dimension_label],
         ["Filtro aplicado", _format_filter_summary(filters, date_range)],
         ["Coluna de regional", detected.get("regional") or "Nao detectada"],
+        ["Coluna de polo", detected.get("polo") or "Nao detectada"],
         ["Coluna de problema", detected.get("problema") or "Nao detectada"],
         ["Coluna de data", detected.get("data") or "Nao detectada"],
     ]
@@ -640,6 +641,7 @@ def _mapping_controls(df: pd.DataFrame, detected: dict[str, str | None]) -> dict
             ("instalador", "Instalador"),
             ("cidade", "Cidade"),
             ("bairro", "Bairro"),
+            ("polo", "Polo"),
             ("regional", "Regional"),
             ("evento", "Tipo de evento"),
             ("problema", "Problema/observacao"),
@@ -665,6 +667,7 @@ def _filter_controls(
     cols = st.columns(4)
     filter_labels = [
         ("regional", "Regional"),
+        ("polo", "Polo"),
         ("evento", "Tipo de evento"),
         ("problema", "Problema"),
         ("instalador", "Instalador"),
@@ -791,7 +794,7 @@ def main() -> None:
         ("Registros de eventos", f"{len(analysis_df):,}".replace(",", ".")),
         ("Tipo de evento", "Todos" if not focused_event_types else f"{len(focused_event_types)} selecionado(s)"),
         ("Dimensoes detectadas", str(len(available_dimensions))),
-        ("Regional", detected.get("regional") or "Nao detectada"),
+        ("Polo", detected.get("polo") or "Nao detectado"),
     ]
     metric_cols = st.columns(4)
     for col, (label, value) in zip(metric_cols, metric_items):

@@ -6,11 +6,11 @@ App Streamlit para analisar planilhas XLSX de eventos de campo.
 
 - Upload de planilha `.xlsx` ou `.xlsm`.
 - Selecao da aba a ser analisada.
-- Deteccao automatica das colunas de instalador, cidade, bairro, regional, tipo de evento, problema e data.
+- Deteccao automatica das colunas de instalador, cidade, bairro, polo, regional, tipo de evento, problema e data.
 - Ajuste manual do mapeamento quando a deteccao nao for suficiente.
-- Filtros por regional, tipo de evento, problema, instalador, cidade, bairro e periodo.
+- Filtros por regional, polo, tipo de evento, problema, instalador, cidade, bairro e periodo.
 - Explorador visual interativo com pizza de participacao e Pareto/ranking.
-- Rankings por instalador, cidade, bairro, dia, mes, tipo de evento e regional.
+- Rankings por instalador, cidade, bairro, polo, dia, mes, tipo de evento e regional.
 - Download da analise em Excel.
 - Relatorio PDF da analise realizada, com a marca Valenet no cabecalho.
 
